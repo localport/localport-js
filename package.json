@@ -1,9 +1,9 @@
 {
   "name": "localport",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Create reverse tunnels to localhost!",
   "main": "index.js",
-  "homepage": "https://localport.co",
+  "homepage": "localport.co",
   "repository": {
     "type": "git",
     "url": "git://github.com/battall/localport.git"
