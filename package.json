@@ -1,6 +1,6 @@
 {
   "name": "localport",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Create reverse tunnels to localhost!",
   "main": "index.js",
   "homepage": "localport.co",
@@ -9,5 +9,5 @@
     "url": "git://github.com/battall/localport.git"
   },
   "author": "battall <battal51280@gmail.com>",
-  "license": "MIT"
+  "license": "Apache-2.0"
 }
