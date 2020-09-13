@@ -1,2 +1,1 @@
-exports.Tunnel = require('./src/tunnel.js');
-exports.DynamicTunnel = "";
+module.exports = require('./src/tunnel.js');

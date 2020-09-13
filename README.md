@@ -1,5 +1,5 @@
-# localport
-yet another reverse tunnel to localhost 🚀
+# Share local ports to web
+### A reverse tunnel to easily open ports to web 🚀
 
 
 lightweight - Have both native js and golang clients
