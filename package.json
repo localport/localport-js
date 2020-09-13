@@ -1,6 +1,6 @@
 {
   "name": "localport",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Create reverse tunnels to localhost!",
   "main": "index.js",
   "homepage": "localport.co",
