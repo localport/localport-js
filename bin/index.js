@@ -1,5 +1,5 @@
 #! /usr/bin/env node
 
-const localport = require('../');
+const localport = require("../");
 
-console.log("Vay amke")
+console.log("Vay amke");

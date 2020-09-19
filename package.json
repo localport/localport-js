@@ -7,14 +7,20 @@
     "lort": "./bin/index.js",
     "localport": "./bin/index.js"
   },
-  "scripts": {
-    
-  },
+  "scripts": {},
   "homepage": "https://localport.co",
   "repository": {
     "type": "git",
     "url": "https://github.com/localport/localport-js.git"
   },
-  "keywords": ["localhost", "tunneling", "localtunnel", "ngrok", "webhook", "open", "port"],
+  "keywords": [
+    "localhost",
+    "tunneling",
+    "localtunnel",
+    "ngrok",
+    "webhook",
+    "open",
+    "port"
+  ],
   "license": "Apache-2.0"
 }
