@@ -1,1 +1,1 @@
-module.exports = require("./src/tunnel.js");
+exports.Tunnel = require("./src/tunnel.js");
