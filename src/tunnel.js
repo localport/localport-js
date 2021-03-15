@@ -2,6 +2,8 @@ const http2 = require("http2");
 const { EventEmitter } = require("events");
 const { inherits } = require("util");
 
+const constants = require("./constants.js");
+
 /**
  * @typedef {Object} TunnelConfig
  * @property {string} [token] Token for auth
@@ -65,7 +67,9 @@ Tunnel.prototype.start = function () {
   });
   this._client.on("error", (error) => this.emit("error", error));
 
-  this._client.on("stream", (stream) => {});
+  this._client.on("stream", (stream) => {
+    console.log("STREAM BUT...");
+  });
 
   const stream = this._client.request({
     "x-config": JSON.stringify(this.config),
