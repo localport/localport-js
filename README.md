@@ -1,13 +1,14 @@
-# Share local ports to world wide net
+# Share local ports to web
 
 ### A reverse tunnel to easily open ports for servers running on localhost 🚀
 
 - Lightweight, pure javascript library with 0 dependency
 - Uses QUIC/HTTP2 Multiplexing, so no need to open new socket for every connection
-- TCP and HTTP Forwarding
+- TCP and HTTP (+WebSocket) Forwarding
 - Built-in file server for quick directory listing
 - Option to set allowed or blocked IPs
 - Option to set HTTP authentication header for security
+- Option to set host header for shared servers
 
 ### Quick Start
 
@@ -23,6 +24,9 @@ More examples and API reference in [docs](https://localport.co/docs)
 3. client -> server: requests to "/" with config
 4. server: checks config, opens needed ports etc
 5. server: when receiced request, opens a pushstream
+
+> client can't write to push stream (ah sh\*t here we go again)
+> decided to write my own multiplexing library
 
 ### Development & Building
 
