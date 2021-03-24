@@ -1,6 +1,6 @@
 {
   "name": "localport",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "description": "Easily open ports by reverse tunneling to localhost",
   "main": "index.js",
   "bin": {
