@@ -73,7 +73,6 @@ function Tunnel(config = {}) {
 
   this.transport = undefined; // Info about transport protocol, ssh, h2, quic etc.
   this._isConfigSent = false;
-  this._stdout = undefined; // Logging for CLI
 }
 
 Tunnel.prototype.forward = function (stream, headers) {

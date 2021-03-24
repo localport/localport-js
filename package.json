@@ -8,7 +8,7 @@
     "localport": "./bin/index.js"
   },
   "scripts": {
-    "dev": "nodemon example.js",
+    "dev": "nodemon index.js",
     "build:arm": "pkg -t node12.2-linux-armv7 ."
   },
   "devDependencies": {

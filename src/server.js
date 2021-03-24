@@ -34,7 +34,7 @@ function Server({ key, cert, ca }) {
           transport = http2.connect("http://localhost", {
             createConnection: () => socket,
           });
-          let request = transport.request({ ":method": "CONFIG" });
+          let request = transport.request({ ":method": "CONFIG" }).end();
           let config = "";
           request.on("data", (data) => (config += data));
           request.on("end", () => {
