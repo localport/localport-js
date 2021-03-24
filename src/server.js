@@ -1,49 +1,48 @@
 const net = require("net");
-const events = require("events");
-const util = require("util");
+const tls = require("tls");
 const http = require("http");
 const http2 = require("http2");
+const events = require("events");
+const util = require("util");
 
 const constants = require("./constants.js");
+const ServerTunnel = require("./server-tunnel.js");
 
 function Server({ key, cert, ca }) {
   // We do have to keep tunnels in a store for a fast handleRequest method
   this._tunnels = []; // { proto, port, ... }
   this._tunnelsByHost = {}; // HTTP Tunnels
 
-  this._http2 = http2
-    .createSecureServer({ key, cert, ca, allowHTTP1: true })
-    .on("request", (req, res) => {
-      // When http1 and http2
-      // console.log(req.headers);
-    })
-    .on("stream", (stream, headers) => {
-      // Only http2
-      console.log("[HTTP2] Stream", headers);
+  // TLS Connections emitted these to handle tunnel requests
+  // HTTP1 listens cause 80 port is not encrypted and can be directly listened
+  this._http1server = http.createServer().listen(80);
+  this._http2server = http2.createServer();
 
-      // If x-config exists it means this is a tunnel connection
-      if (headers["x-config"]) {
-        const tunnel = new ServerTunnel(
-          JSON.parse(headers["x-config"])
-        )._setTransport(constants.H2, stream);
-        this.addTunnel(tunnel);
-        return;
+  this._server = tls
+    .createServer({ key, cert, ca, ALPNProtocols: ["h2", "http/1.1"] })
+    .on("secureConnection", (socket) => {
+      switch (socket.alpnProtocol) {
+        case "h2":
+          this._http2server.emit("connection", socket);
+          break;
+        case "http/1.1":
+          this._http1server.emit("connection", socket);
+          break;
+        default:
+          // Handle Tunnel Connections
+          // use this socket to create a reverse-http2 connection
+          transport = http2.connect("http://localhost", {
+            createConnection: () => socket,
+          });
+          let request = transport.request({ ":method": "CONFIG" });
+          let config = "";
+          request.on("data", (data) => (config += data));
+          request.on("end", () => {
+            let tunnel = new ServerTunnel(JSON.parse(config));
+            tunnel.transport = transport;
+            this.handleTunnel(tunnel);
+          });
       }
-
-      // lort.me without subdomain
-      if (headers[":authority"] === "lort.me") {
-        stream.respond({
-          ":status": 200,
-          "content-type": "text/html; charset=utf-8",
-        });
-        stream.end(
-          `Hi! <a style="color: gray;" href="https://localport.co/">maybe you are looking for our website.</a>`
-        );
-        return;
-      }
-
-      // HTTP tunnel requests
-      this.handleRequest(stream, headers);
     });
 }
 
@@ -51,31 +50,37 @@ function Server({ key, cert, ca }) {
 // Here opens TCP server if needed
 // Here listens to events on tunnel to do things when needed
 Server.prototype.handleTunnel = function (tunnel) {
+  console.log("GOT TUNNEL");
   if (tunnel.proto === "tcp") {
     tunnel.tcpServer = net.createServer((socket) => {
       // idk if this is necessary
       // socket.on("error", (error) => this.emit("error", error));
 
-      tunnel.createStream(socket).then((stream) => {
+      tunnel.openStream().then((stream) => {
         socket.pipe(stream).pipe(socket);
       });
     });
     tunnel.tcpServer.listen(tunnel.remotePort);
     tunnel.remotePort = tunnel.tcpServer.address().port;
 
+    tunnel.remoteAddr = "lort.me";
+    tunnel.remotePort = tunnel.remotePort;
+
     tunnel.on("close", () => tunnel.tcpServer.close());
   } else {
-    for (domain in tunnel.domains) {
-      this._tunnelsByHost[tunnel.domains[0]] = tunnel;
+    console.log(tunnel.domains);
+    for (domain of tunnel.domains) {
+      this._tunnelsByHost[domain] = tunnel;
     }
 
     tunnel.on("close", () => {
-      for (domain in tunnel.domains) {
-        delete this._tunnelsByHost[tunnel.domains[0]];
+      for (domain of tunnel.domains) {
+        delete this._tunnelsByHost[domain];
       }
     });
   }
 
+  console.log(tunnel.remoteAddr + ":" + tunnel.remotePort);
   tunnel.emit("ready");
 };
 
@@ -128,7 +133,7 @@ Server.prototype.use = function (server, config) {
 };
 
 Server.prototype.listen = function (port) {
-  this._http2.listen(port);
+  this._server.listen(port);
 };
 
 util.inherits(Server, events.EventEmitter);
@@ -136,64 +141,17 @@ util.inherits(Server, events.EventEmitter);
 module.exports = Server;
 
 /*
-server = {};
-      server.socket = net.createQuicSocket({ endpoint: { port } });
-      server.socket
-        .on("session", (session) => {
-          const tunnel = new ServerTunnel()._setTransport(
-            constants.QUIC,
-            session
-          );
-          this.emit("tunnel", tunnel);
 
-          session.on("stream", (stream) => {
-            console.log("[SESSION][STREAM]");
-            // Let's see what the peer has to say...
-            stream.setEncoding("utf8");
-            stream.on("data", console.log);
-            stream.on("end", () => {
-              console.log("[SESSION][STREAM] END");
-            });
+          let length = null;
+          let config = null;
+          socket.on("readable", () => {
+            // Read tunnel config
+            if (!length) length = socket.read(2);
+            if (!length) return;
+            if (!config) config = socket.read(length.readUInt16LE(0));
+            if (!config) return;
+            socket.removeAllListeners("readable"); // Do not emit readable to here anymore
+
+            // this.handleTunnel(tunnel);
           });
-
-          session.on("close", () => tunnel.emit("close"));
-        })
-        .listen({ alpn: constants.ALPN, key, cert, ca, idleTimeout: 15 });
-      break;
-  
-*/
-
-/*
-// Tunnel connections
-  // Do not listen because all tunnels handled by a outside tls server
-  // Then emitted to here
-  this.server = net.createServer((socket) => {
-    socket.read(1); // Remove the first 0 byte
-
-    // Rewrite here in the future
-    socket.on("message", (message) => {
-      console.log(message);
-    });
-
-    socket.on("readable", () => {
-      let msgLength = socket.read(2);
-      if (!msgLength) return;
-
-      let msg = socket.read(msgLength.readUInt16BE());
-      if (!msg) {
-        socket.unshifted = 1;
-        socket.unshift(msgLength);
-        return;
-      }
-
-      socket.emit("message", msg);
-    });
-
-    socket.on("error", (error) => console.log(error));
-
-    socket.on("close", () => {
-      console.log("[Tunnel] Close");
-    });
-  });
-
 */

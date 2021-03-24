@@ -13,4 +13,4 @@ for (const constant in constants) {
 
 exports.Tunnel = require("./src/tunnel.js");
 exports.ServerTunnel = require("./src/server-tunnel.js");
-exports.Server = require("./server.js");
+exports.Server = require("./src/server.js");

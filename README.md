@@ -19,14 +19,22 @@ More examples and API reference in [docs](https://localport.co/docs)
 
 ### How it works
 
-1. server: starts http2 server
-2. client -> server: connects to http2 server
-3. client -> server: requests to "/" with config
-4. server: checks config, opens needed ports etc
-5. server: when receiced request, opens a pushstream
+> weirdly, reverse-http2 now works? why didn't it work before... idk
 
-> client can't write to push stream (ah sh\*t here we go again)
-> decided to write my own multiplexing library
+1. client: creates local http2 server
+2. client -> server: tls connection
+3. client -> server: sends config
+4. server: checks config
+5. server -> client: http2.connect over tls opened before
+
+> sending config(more like data) before http2.connect does not works, (yes again protocol error)
+> so i am going to use sth like this
+> this method gonna add some latency to tunnel negotiation
+
+4. server -> client: http2.connect over tls opened before
+5. server -> client: http2 request with method CONFIG
+6. client -> server: sends config (response to that request)
+7. server: checks config, if success request ends fine, else error
 
 ### Development & Building
 

@@ -1,3 +1,5 @@
+const net = require("net");
+const tls = require("tls");
 const http2 = require("http2");
 const { EventEmitter } = require("events");
 const { inherits } = require("util");
@@ -21,7 +23,7 @@ const constants = require("./constants.js");
  * @param {TunnelConfig} config
  * @return {Tunnel} Tunnel Instance
  */
-function Tunnel(config) {
+function Tunnel(config = {}) {
   this._id = config._id;
   this.token = config.token;
 
@@ -39,90 +41,88 @@ function Tunnel(config) {
 
   this.server = config.server || { host: "lort.me", port: 443 };
 
+  // Local http2 server that reverse connected
+  this._http2server = http2.createServer();
+  this._http2server.on("error", (error) => this.emit("error", error));
+
+  this._http2server.on("stream", (stream, headers) => {
+    console.log("[CLIENT]: Event 'stream'", headers);
+
+    // CONFIG request, send Config
+    if (headers[":method"] === "CONFIG") {
+      this._isConfigSent = true;
+      stream.respond({ ":status": 200 });
+      stream.end(
+        JSON.stringify({
+          token: this.token,
+          proto: this.proto,
+          addr: this.addr,
+          port: this.port,
+          remoteAddr: this.remoteAddr,
+          remotePort: this.remotePort,
+          hostHeader: this.hostHeader,
+          domains: this.domains,
+        })
+      );
+      return;
+    }
+
+    // Forward requests (":method": "CONNECT")
+    this.forward(stream, headers);
+  });
+
   this.transport = undefined; // Info about transport protocol, ssh, h2, quic etc.
-  this._TCPServer = undefined; // TCP Server that started on server, listens on {remoteAddr}:{remotePort}
+  this._isConfigSent = false;
   this._stdout = undefined; // Logging for CLI
 }
 
-Tunnel.prototype.forward = function () {
-  // Must not specify the ':path' and ':scheme' headers
-  // for CONNECT requests or an error will be thrown.
-  this._client.request({
-    ":method": "CONNECT",
-    ":authority": `localhost:3000`,
+Tunnel.prototype.forward = function (stream, headers) {
+  // const auth = new URL(`tcp://${headers[":authority"]}`);
+  const auth = new URL(`tcp://${this.addr}:${this.port}`);
+  // It's a very good idea to verify that hostname and port are
+  // things this proxy should be connecting to.
+  const socket = new net.Socket();
+  socket.on("error", (error) => {
+    stream.close(http2.constants.NGHTTP2_CONNECT_ERROR);
   });
-
-  req.on("response", (headers) => {
-    console.log(headers[http2.constants.HTTP2_HEADER_STATUS]);
+  socket.connect(auth.port, auth.hostname, function () {
+    socket.pipe(stream).pipe(socket);
   });
-  req.setEncoding("utf8");
-  req.on("data", (chunk) => console.log(chunk.toString()));
 };
 
 Tunnel.prototype.start = function () {
-  this._client = http2.connect({
+  this._socket = tls.connect({
     port: this.server.port,
     host: this.server.host,
-    servername: this.server.host,
+    // servername: this.server.host,
   });
-  this._client.on("error", (error) => this.emit("error", error));
+  this._socket.on("error", (error) => this.emit("error", error));
 
-  this._client.on("stream", (stream) => {
-    console.log("STREAM BUT...");
-  });
-
-  const stream = this._client.request({
-    "x-config": JSON.stringify(this.config),
-  });
+  this._http2server.emit("connection", this._socket);
 };
 
 Tunnel.prototype.close = function () {
   this._socket.close();
 };
 
-// SERVER ONLY METHODS
-// Initializes transport properties, events etc.
-Tunnel.prototype._setTransport = function (proto, session) {
-  this.transport = { proto, session };
-  switch (proto) {
-    case constants.H2:
-      break;
-    case constants.QUIC:
-      session.on("close", () => this.emit("close"));
-      break;
-    case constants.SSH:
-      session
-        .on("authentication", (ctx) => {
-          // Anonymous tunnels not supported (method none)
-          if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
-          // If no signature accept directly without checking public key
-          if (!ctx.signature) return ctx.accept();
-
-          ctx.publickey = ctx.key;
-          this.emit("auth", ctx);
-        })
-        .once("session", (accept, reject) => {
-          const session = accept();
-          session.once("pty", (accept, reject, info) => accept());
-          session.once("shell", (accept, reject) => {
-            const stream = accept();
-            // Close tunnel when pressed ctrl+c
-            stream.on(
-              "data",
-              (data) => data.length === 1 && data[0] === 0x03 && stream.end()
-            );
-            this.stdout = stream;
-            this.emit("stdout");
-          });
-        })
-        .on("error", (error) => this.emit("error", error))
-        .on("end", () => this.emit("close"));
-      break;
-  }
-
-  return this;
-};
-
 inherits(Tunnel, EventEmitter);
 
 module.exports = Tunnel;
+
+/*
+  // Send Config
+  let config = JSON.stringify({
+    token: this.token,
+    proto: this.proto,
+    addr: this.addr,
+    port: this.port,
+    remoteAddr: this.remoteAddr,
+    remotePort: this.remotePort,
+    hostHeader: this.hostHeader,
+    domains: this.domains,
+  });
+  let buffer = new Buffer.alloc(2 + config.length);
+  buffer.writeUInt16LE(config.length, 0);
+  buffer.write(config, 2);
+  this._socket.write(buffer);
+*/
