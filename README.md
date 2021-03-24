@@ -19,22 +19,21 @@ More examples and API reference in [docs](https://localport.co/docs)
 
 ### How it works
 
-> weirdly, reverse-http2 now works? why didn't it work before... idk
+<details><summary>Show</summary>
+
+> weirdly, reverse-http2 now works? why didn't it work before... idk  
+> sending data (config) before http2.connect doesn't work, (yes again protocol error)  
+> so i'm gonna send config over http2 requests
+> this method gonna add some latency to tunnel negotiation
 
 1. client: creates local http2 server
 2. client -> server: tls connection
 3. client -> server: sends config
-4. server: checks config
-5. server -> client: http2.connect over tls opened before
-
-> sending config(more like data) before http2.connect does not works, (yes again protocol error)
-> so i am going to use sth like this
-> this method gonna add some latency to tunnel negotiation
-
 4. server -> client: http2.connect over tls opened before
 5. server -> client: http2 request with method CONFIG
 6. client -> server: sends config (response to that request)
 7. server: checks config, if success request ends fine, else error
+</details>
 
 ### Development & Building
 
